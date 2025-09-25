@@ -1,0 +1,1995 @@
+                                <h2 className="text-xl font-semibold text-gray-900 mb-4">How You Can Help</h2>
+                                <p className="text-gray-600 mb-6">Topics prioritized by where {familyData.mother.name} needs your wisdom most</p>
+                                
+                                <div className="grid gap-4">
+                                    {prioritizedTopics.map(topic => {
+                                        const myWisdomCount = (topic.familyWisdom || []).filter(w => w.member === user.name).length;
+                                        const personalizedPrompt = getPromptForTopic(topic);
+                                        
+                                        return (
+                                            <div
+                                                key={topic.id}
+                                                onClick={() => setSelectedTopic(topic)}
+                                                className="bg-white p-6 rounded-lg card-shadow hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-transparent hover:border-l-pink-500"
+                                            >
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center space-x-3 mb-2">
+                                                            <h3 className="font-semibold text-gray-900">{topic.title}</h3>
+                                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getUrgencyColor(topic.needForInput)}`}>
+                                                                {getUrgencyLabel(topic.needForInput)}
+                                                            </span>
+                                                        </div>
+                                                        
+                                                        <p className="text-gray-600 text-sm mb-3">
+                                                            {topic.bestPractice.substring(0, 120)}...
+                                                        </p>
+                                                        
+                                                        {/* Personalized prompt for support member */}
+                                                        <div className="mb-3">
+                                                            <div className="bg-pink-50 text-pink-700 text-sm px-3 py-2 rounded-lg">
+                                                                💭 <strong>For you:</strong> {personalizedPrompt}
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        {/* Smart insights */}
+                                                        {topic.insights && topic.insights.length > 0 && (
+                                                            <div className="mb-3 space-y-1">
+                                                                {topic.insights.slice(0, 1).map((insight, idx) => (
+                                                                    <div key={idx} className={`text-xs px-2 py-1 rounded ${
+                                                                        insight.type === 'urgent' ? 'bg-red-100 text-red-700' :
+                                                                        insight.type === 'help-needed' ? 'bg-pink-100 text-pink-700' :
+                                                                        insight.type === 'timely' ? 'bg-blue-100 text-blue-700' :
+                                                                        insight.type === 'encourage' ? 'bg-green-100 text-green-700' :
+                                                                        'bg-gray-100 text-gray-700'
+                                                                    }`}>
+                                                                        💡 {insight.text}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                        
+                                                        <div className="flex items-center justify-between text-sm text-gray-500">
+                                                            <div className="flex items-center space-x-4">
+                                                                <span>{(topic.familyWisdom || []).length} family tips</span>
+                                                                {myWisdomCount > 0 && (
+                                                                    <span className="text-pink-600 font-medium">
+                                                                        You contributed {myWisdomCount}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <span className="text-xs">Help Score: {Math.round(topic.needForInput)}/10</span>
+                                                        </div>
+                                                    </div>
+                                                    <svg className="w-5 h-5 text-gray-400 flex-shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Relationship
+                                </label>
+                                <select
+                                    value={relationship}
+                                    onChange={(e) => setRelationship(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                                    required
+                                    disabled={loading}
+                                >
+                                    <option value="">Select relationship</option>
+                                    <option value="Mother">Mother (Grandmother)</option>
+                                    <option value="Father">Father (Grandfather)</option>
+                                    <option value="Sister">Sister</option>
+                                    <option value="Brother">Brother</option>
+                                    <option value="Partner">Partner</option>
+                                    <option value="Friend">Close Friend</option>
+                                    <option value="Aunt">Aunt</option>
+                                    <option value="Uncle">Uncle</option>
+                                    <option value="Other">Other Family</option>
+                                </select>
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={!invitation || loading}
+                                className="w-full bg-pink-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-pink-700 transition-colors disabled:bg-gray-400"
+                            >
+                                {loading ? 'Joining...' : 'Join Family Circle'}
+                            </button>
+                        </form>
+
+                        <div className="mt-6 text-center">
+                            <button
+                                onClick={onBackToWelcome}
+                                className="text-gray-600 hover:text-gray-700 text-sm"
+                                disabled={loading}
+                            >
+                                ← Back to main page
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function MotherDashboard({ user, onLogout }) {
+            const [currentStage, setCurrentStage] = useState(user.stage);
+            const [selectedTopic, setSelectedTopic] = useState(null);
+            const [showInviteModal, setShowInviteModal] = useState(false);
+            const [familyData, setFamilyData] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                loadFamilyData();
+            }, [user.familyId]);
+
+            const loadFamilyData = async () => {
+                try {
+                    const data = await API.getFamily(user.familyId);
+                    setFamilyData(data);
+                } catch (error) {
+                    console.error('Failed to load family data:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            if (loading) {
+                return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                    <div className="text-center">
+                        <p className="text-gray-600">Loading your family circle...</p>
+                    </div>
+                </div>;
+            }
+
+            if (!familyData) {
+                return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                    <div className="text-center">
+                        <p className="text-red-600">Failed to load family data</p>
+                        <button onClick={loadFamilyData} className="mt-2 text-pink-600 hover:text-pink-700">
+                            Try again
+                        </button>
+                    </div>
+                </div>;
+            }
+
+            const stageLabels = {
+                prenatal: 'Prenatal Care',
+                newborn: 'Newborn (0-3 months)',
+                infant: 'Infant (3-12 months)', 
+                toddler: 'Toddler (1-3 years)',
+                preschool: 'Preschooler (3-5 years)'
+            };
+
+            if (selectedTopic) {
+                return (
+                    <TopicDetailView 
+                        topic={selectedTopic}
+                        user={user}
+                        familyData={familyData}
+                        onBack={() => setSelectedTopic(null)}
+                        onDataUpdate={loadFamilyData}
+                    />
+                );
+            }
+
+            if (showInviteModal) {
+                return <InviteModal user={user} onClose={() => setShowInviteModal(false)} />;
+            }
+
+            // Smart prioritization of topics
+            const rawTopics = familyData.topics[currentStage] || [];
+            const prioritizedTopics = TopicPrioritizer.prioritizeTopics(rawTopics, familyData.mother || user, user.role);
+            
+            const recentActivities = prioritizedTopics
+                .flatMap(topic => (topic.activities || []).map(activity => ({ ...activity, topicTitle: topic.title })))
+                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                .slice(0, 3);
+
+            const getUrgencyColor = (urgency) => {
+                if (urgency >= 8) return 'text-red-600 bg-red-50';
+                if (urgency >= 6) return 'text-orange-600 bg-orange-50';
+                if (urgency >= 4) return 'text-yellow-600 bg-yellow-50';
+                return 'text-green-600 bg-green-50';
+            };
+
+            const getUrgencyLabel = (urgency) => {
+                if (urgency >= 8) return 'Urgent';
+                if (urgency >= 6) return 'Important';
+                if (urgency >= 4) return 'Timely';
+                return 'Good to know';
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <div className="bg-white shadow-sm border-b">
+                        <div className="max-w-6xl mx-auto px-4 py-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h1 className="text-2xl font-bold text-gray-900">Welcome back, {user.name}!</h1>
+                                    <p className="text-gray-600">{stageLabels[currentStage]}</p>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                    <select
+                                        value={currentStage}
+                                        onChange={(e) => setCurrentStage(e.target.value)}
+                                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500"
+                                    >
+                                        <option value="prenatal">Prenatal</option>
+                                        <option value="newborn">Newborn</option>
+                                        <option value="infant">Infant</option>
+                                        <option value="toddler">Toddler</option>
+                                        <option value="preschool">Preschooler</option>
+                                    </select>
+                                    <button
+                                        onClick={onLogout}
+                                        className="text-gray-500 hover:text-gray-700 text-sm"
+                                    >
+                                        Logout
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-w-6xl mx-auto px-4 py-8">
+                        <div className="grid lg:grid-cols-3 gap-8">
+                            <div className="lg:col-span-2">
+                                <h2 className="text-xl font-semibold text-gray-900 mb-6">Care Topics</h2>
+                                
+                                <div className="grid gap-4">
+                                    {prioritizedTopics.map(topic => (
+                                        <div
+                                            key={topic.id}
+                                            onClick={() => setSelectedTopic(topic)}
+                                            className="bg-white p-6 rounded-lg card-shadow hover:shadow-md transition-shadow cursor-pointer border-l-4 border-l-transparent hover:border-l-pink-500"
+                                        >
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center space-x-3 mb-2">
+                                                        <h3 className="font-semibold text-gray-900">{topic.title}</h3>
+                                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getUrgencyColor(topic.urgency)}`}>
+                                                            {getUrgencyLabel(topic.urgency)}
+                                                        </span>
+                                                    </div>
+                                                    
+                                                    <p className="text-gray-600 text-sm mb-3">
+                                                        {topic.bestPractice.substring(0, 120)}...
+                                                    </p>
+                                                    
+                                                    {/* Smart insights */}
+                                                    {topic.insights && topic.insights.length > 0 && (
+                                                        <div className="mb-3 space-y-1">
+                                                            {topic.insights.slice(0, 2).map((insight, idx) => (
+                                                                <div key={idx} className={`text-xs px-2 py-1 rounded ${
+                                                                    insight.type === 'urgent' ? 'bg-red-100 text-red-700' :
+                                                                    insight.type === 'help-needed' ? 'bg-pink-100 text-pink-700' :
+                                                                    insight.type === 'timely' ? 'bg-blue-100 text-blue-700' :
+                                                                    insight.type === 'active' ? 'bg-green-100 text-green-700' :
+                                                                    'bg-gray-100 text-gray-700'
+                                                                }`}>
+                                                                    💡 {insight.text}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    
+                                                    <div className="flex items-center justify-between text-sm text-gray-500">
+                                                        <div className="flex items-center space-x-4">
+                                                            <span>{(topic.familyWisdom || []).length} family tips</span>
+                                                            <span>{(topic.activities || []).length} activities</span>
+                                                        </div>
+                                                        <div className="flex items-center space-x-2">
+                                                            {topic.needForInput >= 8 && (
+                                                                <span className="text-pink-600 text-xs font-medium">Needs input</span>
+                                                            )}
+                                                            <span className="text-xs">Priority: {Math.round(topic.priorityScore)}/10</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <svg className="w-5 h-5 text-gray-400 flex-shrink-0 ml-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div className="bg-white p-6 rounded-lg card-shadow">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="font-semibold text-gray-900">Support Circle</h3>
+                                        <button
+                                            onClick={() => setShowInviteModal(true)}
+                                            className="text-pink-600 hover:text-pink-700 text-sm font-medium"
+                                        >
+                                            + Invite
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        {(familyData.members || []).map(member => (
+                                            <div key={member.id} className="flex items-center space-x-3">
+                                                <div className="w-8 h-8 bg-pink-100 rounded-full flex items-center justify-center">
+                                                    <span className="text-pink-600 font-medium text-sm">
+                                                        {member.name.charAt(0)}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium text-gray-900 text-sm">{member.name}</p>
+                                                    <p className="text-gray-500 text-xs">{member.relationship}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {(!familyData.members || familyData.members.length === 0) && (
+                                            <p className="text-gray-500 text-sm">No support members yet. Invite your family!</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {recentActivities.length > 0 && (
+                                    <div className="bg-white p-6 rounded-lg card-shadow">
+                                        <h3 className="font-semibold text-gray-900 mb-4">Recent Activities</h3>
+                                        <div className="space-y-3">
+                                            {recentActivities.map(activity => (
+                                                <div key={activity.id} className="p-3 bg-blue-50 rounded-lg">
+                                                    <p className="text-sm text-gray-800">{activity.content}</p>
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        {activity.topicTitle} • {activity.date}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function SupportDashboard({ user, onLogout }) {
+            const [selectedTopic, setSelectedTopic] = useState(null);
+            const [familyData, setFamilyData] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                loadFamilyData();
+            }, [user.familyId]);
+
+            const loadFamilyData = async () => {
+                try {
+                    const data = await API.getFamily(user.familyId);
+                    setFamilyData(data);
+                } catch (error) {
+                    console.error('Failed to load family data:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            if (loading) {
+                return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                    <div className="text-center">
+                        <p className="text-gray-600">Loading family information...</p>
+                    </div>
+                </div>;
+            }
+
+            if (!familyData) {
+                return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                    <div className="text-center">
+                        <p className="text-red-600">Failed to load family data</p>
+                        <button onClick={loadFamilyData} className="mt-2 text-pink-600 hover:text-pink-700">
+                            Try again
+                        </button>
+                    </div>
+                </div>;
+            }
+
+            if (selectedTopic) {
+                return (
+                    <TopicDetailView 
+                        topic={selectedTopic}
+                        user={user}
+                        familyData={familyData}
+                        onBack={() => setSelectedTopic(null)}
+                        onDataUpdate={loadFamilyData}
+                    />
+                );
+            }
+
+            const stageLabels = {
+                prenatal: 'Prenatal Care',
+                newborn: 'Newborn (0-3 months)',
+                infant: 'Infant (3-12 months)', 
+                toddler: 'Toddler (1-3 years)',
+                preschool: 'Preschooler (3-5 years)'
+            };
+
+            // Smart prioritization for support members
+            const rawTopics = familyData.topics[familyData.stage] || [];
+            const prioritizedTopics = TopicPrioritizer.prioritizeTopics(rawTopics, familyData.mother, user.role);
+            
+            const myContributions = prioritizedTopics
+                .flatMap(topic => 
+                    (topic.familyWisdom || []).filter(wisdom => wisdom.member === user.name).map(wisdom => ({
+                        ...wisdom,
+                        topicTitle: topic.title
+                    }))
+                )
+                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                .slice(0, 3);
+
+            // Get personalized prompts for this support member
+            const getPromptForTopic = (topic) => {
+                return TopicPrioritizer.generatePrompts(topic, familyData.mother, user)[0] || 'Share your experience';
+            };
+
+            const getUrgencyColor = (urgency) => {
+                if (urgency >= 8) return 'text-red-600 bg-red-50';
+                if (urgency >= 6) return 'text-orange-600 bg-orange-50';
+                if (urgency >= 4) return 'text-yellow-600 bg-yellow-50';
+                return 'text-green-600 bg-green-50';
+            };
+
+            const getUrgencyLabel = (urgency) => {
+                if (urgency >= 8) return 'Urgent Help Needed';
+                if (urgency >= 6) return 'Your Input Valuable';
+                if (urgency >= 4) return 'Good Time to Help';
+                return 'Share If You Can';
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <div className="bg-white shadow-sm border-b">
+                        <div className="max-w-6xl mx-auto px-4 py-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h1 className="text-2xl font-bold text-gray-900">Hi {user.name}!</h1>
+                                    <p className="text-gray-600">Supporting {familyData.mother.name}'s {stageLabels[familyData.stage]} journey</p>
+                                </div>
+                                <button
+                                    onClick={onLogout}
+                                    className="text-gray-500 hover:text-gray-700 text-sm"
+                                >
+                                    Logout
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-w-6xl mx-auto px-4 py-8">
+                        <div className="grid lg:grid-cols-3 gap-8">
+                            <div className="lg:col-span-2">
+                                <h2 className="text-xl font-semibold text-gray-900 mb-6">Care Topics</h2>
+                                <p className="text-gray-600 mb-6">Share your wisdom and experience to help {familyData.mother.name}</p>
+                                
+                                <div className="grid gap-4">
+                                    {currentTopics.map(topic => {
+                                        const myWisdomCount = (topic.familyWisdom || []).filter(w => w.member === user.name).length;
+                                        return (
+                                            <div
+                                                key={topic.id}
+                                                onClick={() => setSelectedTopic(topic)}
+                                                className="bg-white p-6 rounded-lg card-shadow hover:shadow-md transition-shadow cursor-pointer"
+                                            >
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex-1">
+                                                        <h3 className="font-semibold text-gray-900 mb-2">{topic.title}</h3>
+                                                        <p className="text-gray-600 text-sm mb-3">
+                                                            {topic.bestPractice.substring(0, 120)}...
+                                                        </p>
+                                                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                                                            <span>{(topic.familyWisdom || []).length} family tips</span>
+                                                            {myWisdomCount > 0 && (
+                                                                <span className="text-pink-600 font-medium">
+                                                                    You contributed {myWisdomCount}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <div className="bg-white p-6 rounded-lg card-shadow">
+                                    <h3 className="font-semibold text-gray-900 mb-4">Family Circle</h3>
+                                    <div className="space-y-3">
+                                        <div className="flex items-center space-x-3 p-3 bg-pink-50 rounded-lg">
+                                            <div className="w-8 h-8 bg-pink-200 rounded-full flex items-center justify-center">
+                                                <span className="text-pink-700 font-medium text-sm">
+                                                    {familyData.mother.name.charAt(0)}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-gray-900 text-sm">{familyData.mother.name}</p>
+                                                <p className="text-pink-600 text-xs">Primary</p>
+                                            </div>
+                                        </div>
+                                        
+                                        {(familyData.members || []).map(member => (
+                                            <div key={member.id} className="flex items-center space-x-3">
+                                                <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                                                    <span className="text-gray-600 font-medium text-sm">
+                                                        {member.name.charAt(0)}
+                                                    </span>
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium text-gray-900 text-sm">
+                                                        {member.name}
+                                                        {member.id === user.id && " (You)"}
+                                                    </p>
+                                                    <p className="text-gray-500 text-xs">{member.relationship}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {myContributions.length > 0 && (
+                                    <div className="bg-white p-6 rounded-lg card-shadow">
+                                        <h3 className="font-semibold text-gray-900 mb-4">Your Recent Contributions</h3>
+                                        <div className="space-y-3">
+                                            {myContributions.map(contribution => (
+                                                <div key={contribution.id} className="p-3 bg-green-50 rounded-lg">
+                                                    <p className="text-sm text-gray-800">{contribution.content.substring(0, 80)}...</p>
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        {contribution.topicTitle} • {contribution.date}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function InviteModal({ user, onClose }) {
+            const [inviteCode, setInviteCode] = useState('');
+            const [copied, setCopied] = useState(false);
+            const [loading, setLoading] = useState(false);
+
+            const handleGenerateCode = async () => {
+                setLoading(true);
+                try {
+                    const code = await API.createInvitation(user.familyId, user.name);
+                    setInviteCode(code);
+                } catch (error) {
+                    console.error('Failed to generate invite code:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const copyToClipboard = () => {
+                const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${inviteCode}`;
+                navigator.clipboard.writeText(inviteLink);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            };
+
+            const shareViaEmail = () => {
+                const inviteLink = `${window.location.origin}${window.location.pathname}?invite=${inviteCode}`;
+                const subject = `Join ${user.name}'s Family Care Circle`;
+                const body = `Hi!
+
+${user.name} has invited you to join their family care circle on CareCircle.
+
+This is a space where our family can share wisdom, support each other through the parenting journey, and combine medical best practices with our family's knowledge and traditions.
+
+Click here to join: ${inviteLink}
+
+Or use invitation code: ${inviteCode}
+
+Looking forward to having you as part of our support circle!`;
+
+                window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+                        <div className="text-center mb-6">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-2">Invite Support Members</h2>
+                            <p className="text-gray-600">Share your care journey with family and friends</p>
+                        </div>
+
+                        {!inviteCode ? (
+                            <div className="text-center">
+                                <button
+                                    onClick={handleGenerateCode}
+                                    disabled={loading}
+                                    className="bg-pink-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-pink-700 transition-colors disabled:bg-gray-400"
+                                >
+                                    {loading ? 'Generating...' : 'Generate Invitation Code'}
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <div className="p-4 bg-pink-50 rounded-lg text-center">
+                                    <p className="text-sm text-gray-700 mb-2">Invitation Code:</p>
+                                    <p className="text-2xl font-bold text-pink-600 tracking-wider">{inviteCode}</p>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <button
+                                        onClick={copyToClipboard}
+                                        className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors"
+                                    >
+                                        {copied ? '✓ Link Copied!' : 'Copy Invitation Link'}
+                                    </button>
+                                    
+                                    <button
+                                        onClick={shareViaEmail}
+                                        className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                                    >
+                                        Share via Email
+                                    </button>
+                                </div>
+
+                                <div className="text-xs text-gray-500 text-center">
+                                    <p>Family members can use this code to join your care circle.</p>
+                                    <p>They can enter it at your app URL or click the invitation link.</p>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="mt-6 text-center">
+                            <button
+                                onClick={onClose}
+                                className="text-gray-500 hover:text-gray-700 text-sm"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function TopicDetailView({ topic, user, familyData, onBack, onDataUpdate }) {
+            const [showWisdomForm, setShowWisdomForm] = useState(false);
+            const [wisdomInput, setWisdomInput] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            const generateActivity = (topic, wisdom, memberName) => {
+                let templates = activityTemplates.general;
+                let item = topic.title;
+
+                if (wisdom.toLowerCase().includes('recipe') || wisdom.toLowerCase().includes('cook')) {
+                    templates = activityTemplates.recipe;
+                    item = 'recipe';
+                } else if (wisdom.toLowerCase().includes('technique') || wisdom.toLowerCase().includes('method')) {
+                    templates = activityTemplates.technique;
+                    item = wisdom.split(' ').slice(0, 3).join(' ');
+                } else if (wisdom.toLowerCase().includes('story') || wisdom.toLowerCase().includes('remember')) {
+                    templates = activityTemplates.story;
+                }
+
+                const template = templates[Math.floor(Math.random() * templates.length)];
+                return template
+                    .replace('{member}', memberName)
+                    .replace('{item}', item)
+                    .replace('{technique}', item)
+                    .replace('{topic}', topic.title);
+            };
+
+            const addFamilyWisdom = async () => {
+                if (!wisdomInput.trim()) return;
+
+                setLoading(true);
+                try {
+                    const newWisdom = {
+                        id: Date.now(),
+                        member: user.name,
+                        content: wisdomInput,
+                        date: new Date().toLocaleDateString()
+                    };
+
+                    const newActivity = {
+                        id: Date.now() + 1,
+                        content: generateActivity(topic, wisdomInput, user.name),
+                        date: new Date().toLocaleDateString()
+                    };
+
+                    await API.addWisdom(user.familyId, familyData.stage, topic.id, newWisdom, newActivity);
+
+                    // Update local topic data
+                    if (!topic.familyWisdom) topic.familyWisdom = [];
+                    if (!topic.activities) topic.activities = [];
+                    topic.familyWisdom.push(newWisdom);
+                    topic.activities.push(newActivity);
+
+                    setWisdomInput('');
+                    setShowWisdomForm(false);
+                    
+                    // Refresh family data
+                    if (onDataUpdate) onDataUpdate();
+                } catch (error) {
+                    console.error('Failed to add wisdom:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    <div className="bg-white shadow-sm border-b">
+                        <div className="max-w-4xl mx-auto px-4 py-4">
+                            <div className="flex items-center space-x-4">
+                                <button
+                                    onClick={onBack}
+                                    className="text-gray-500 hover:text-gray-700"
+                                >
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                </button>
+                                <h1 className="text-2xl font-bold text-gray-900">{topic.title}</h1>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="max-w-4xl mx-auto px-4 py-8">
+                        <div className="space-y-8">
+                            <div className="bg-white p-6 rounded-lg card-shadow">
+                                <div className="flex items-center space-x-2 mb-4">
+                                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                                    <h2 className="font-semibold text-gray-900">Medical Best Practices</h2>
+                                </div>
+                                <p className="text-gray-700 leading-relaxed">{topic.bestPractice}</p>
+                            </div>
+
+                            <div className="bg-white p-6 rounded-lg card-shadow">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center space-x-2">
+                                        <div className="w-3 h-3 bg-pink-500 rounded-full"></div>
+                                        <h2 className="font-semibold text-gray-900">Family Wisdom</h2>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowWisdomForm(!showWisdomForm)}
+                                        className="text-pink-600 hover:text-pink-700 text-sm font-medium"
+                                        disabled={loading}
+                                    >
+                                        + Add Family Tip
+                                    </button>
+                                </div>
+
+                                {showWisdomForm && (
+                                    <div className="mb-6 p-4 bg-pink-50 rounded-lg">
+                                        <h3 className="font-medium text-gray-900 mb-3">Share Your Family Wisdom</h3>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <textarea
+                                                    value={wisdomInput}
+                                                    onChange={(e) => setWisdomInput(e.target.value)}
+                                                    placeholder="Share your family's approach, recipe, technique, or story about this topic..."
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 h-24"
+                                                    disabled={loading}
+                                                />
+                                            </div>
+                                            <div className="flex space-x-2">
+                                                <button
+                                                    onClick={addFamilyWisdom}
+                                                    disabled={loading}
+                                                    className="px-4 py-2 bg-pink-600 text-white rounded-lg text-sm hover:bg-pink-700 disabled:bg-gray-400"
+                                                >
+                                                    {loading ? 'Sharing...' : 'Share Wisdom'}
+                                                </button>
+                                                <button
+                                                    onClick={() => setShowWisdomForm(false)}
+                                                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-400"
+                                                    disabled={loading}
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="space-y-4">
+                                    {(topic.familyWisdom || []).map(wisdom => (
+                                        <div key={wisdom.id} className="p-4 bg-gray-50 rounded-lg">
+                                            <div className="flex items-start space-x-3">
+                                                <div className="w-8 h-8 bg-pink-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                                    <span className="text-pink-600 font-medium text-sm">
+                                                        {wisdom.member.charAt(0)}
+                                                    </span>
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="flex items-center space-x-2 mb-1">
+                                                        <span className="font-medium text-gray-900 text-sm">{wisdom.member}</span>
+                                                        <span className="text-gray-500 text-xs">{wisdom.date}</span>
+                                                    </div>
+                                                    <p className="text-gray-700">{wisdom.content}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {(!topic.familyWisdom || topic.familyWisdom.length === 0) && (
+                                        <div className="text-center py-8">
+                                            <p className="text-gray-500">No family wisdom shared yet.</p>
+                                            <p className="text-gray-400 text-sm mt-1">Be the first to add your family's approach!</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {topic.activities && topic.activities.length > 0 && (
+                                <div className="bg-white p-6 rounded-lg card-shadow">
+                                    <div className="flex items-center space-x-2 mb-4">
+                                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                        <h2 className="font-semibold text-gray-900">Suggested Activities</h2>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {topic.activities.map(activity => (
+                                            <div key={activity.id} className="p-4 bg-green-50 rounded-lg">
+                                                <p className="text-gray-800">{activity.content}</p>
+                                                <p className="text-gray-500 text-sm mt-1">Suggested on {activity.date}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Admin Dashboard for Analytics (uncomment to use)
+        /*
+        function AdminDashboard() {
+            const [analytics, setAnalytics] = useState(null);
+            const [loading, setLoading] = useState(true);
+
+            useEffect(() => {
+                loadAnalytics();
+            }, []);
+
+            const loadAnalytics = async () => {
+                try {
+                    if (API.getUserAnalytics) {
+                        const data = await API.getUserAnalytics();
+                        setAnalytics(data);
+                    }
+                } catch (error) {
+                    console.error('Failed to load analytics:', error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            if (loading) {
+                return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                    <p>Loading analytics...</p>
+                </div>;
+            }
+
+            return (
+                <div className="min-h-screen bg-gray-50 p-8">
+                    <div className="max-w-6xl mx-auto">
+                        <h1 className="text-3xl font-bold text-gray-900 mb-8">CareCircle Analytics</h1>
+                        
+                        {analytics && (
+                            <div className="grid md:grid-cols-3 gap-6 mb-8">
+                                <div className="bg-white p-6 rounded-lg card-shadow">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Total Families</h3>
+                                    <p className="text-3xl font-bold text-pink-600">{analytics.totalFamilies}</p>
+                                </div>
+                                <div className="bg-white p-6 rounded-lg card-shadow">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Total Users</h3>
+                                    <p className="text-3xl font-bold text-blue-600">{analytics.totalUsers}</p>
+                                </div>
+                                <div className="bg-white p-6 rounded-lg card-shadow">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Invitations Sent</h3>
+                                    <p className="text-3xl font-bold text-green-600">{analytics.totalInvitations}</p>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="bg-white p-6 rounded-lg card-shadow">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Family Activity</h3>
+                            {analytics?.familiesData.map(family => (
+                                <div key={family.id} className="border-b py-4 last:border-b-0">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <h4 className="font-medium">{family.mother.name}</h4>
+                                            <p className="text-sm text-gray-600">{family.stage} • {family.members?.length || 0} members</p>
+                                        </div>
+                                        <div className="text-right text-sm text-gray-500">
+                                            Created: {new Date(family.createdAt?.seconds * 1000 || family.createdAt).toLocaleDateString()}
+                                        </div>
+                                    </div>
+                                </div>
+                            )) || <p>No family data available</p>}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        */
+
+        ReactDOM.render(<CareCircleApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>
+                                                <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CareCircle - Family-Centered Maternal & Pediatric Care</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-app-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-auth-compat.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.23.0/firebase-firestore-compat.min.js"></script>
+    
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #ffeef7 0%, #e0f2fe 100%);
+        }
+        .card-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDfV5KOeSBHL3MhGApf7PpDPR8pqY-W3zk",
+            authDomain: "my-village-hub.firebaseapp.com",
+            projectId: "my-village-hub",
+            storageBucket: "my-village-hub.firebasestorage.app",
+            messagingSenderId: "513575914328",
+            appId: "1:513575914328:web:97298a94fcfe60d86e732d"
+        };
+
+        // Initialize Firebase
+        let db, auth;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            auth = firebase.auth();
+        } catch (error) {
+            console.error("Firebase initialization failed:", error);
+            // Fallback to localStorage if Firebase fails
+            db = null;
+            auth = null;
+        }
+
+        // Topic prioritization and guidance system
+        const TopicPrioritizer = {
+            calculateUrgency(topic, motherData, currentDate = new Date()) {
+                let urgencyScore = 0;
+                
+                // Timeline-based urgency for prenatal stage
+                if (motherData.stage === 'prenatal' && motherData.dueDate) {
+                    const dueDate = new Date(motherData.dueDate);
+                    const weeksUntilDue = Math.ceil((dueDate - currentDate) / (7 * 24 * 60 * 60 * 1000));
+                    
+                    switch(topic.id) {
+                        case 'nutrition':
+                            urgencyScore += weeksUntilDue > 20 ? 10 : 5; // Early pregnancy priority
+                            break;
+                        case 'exercise':
+                            urgencyScore += weeksUntilDue > 12 && weeksUntilDue < 35 ? 8 : 4;
+                            break;
+                        case 'nursery_setup':
+                            urgencyScore += weeksUntilDue < 10 ? 10 : weeksUntilDue < 16 ? 7 : 3;
+                            break;
+                        case 'labor_prep':
+                            urgencyScore += weeksUntilDue < 8 ? 10 : weeksUntilDue < 16 ? 8 : 2;
+                            break;
+                    }
+                }
+                
+                // Age-based urgency for other stages
+                const ageUrgencyMap = {
+                    newborn: { feeding: 10, sleep_newborn: 9, development_0_3: 7 },
+                    infant: { solid_foods: 9, sleep_training: 7, milestones_6_12: 8 },
+                    toddler: { potty_training: 6, nutrition_toddler: 8, behavior_guidance: 9 },
+                    preschool: { school_readiness: 8, emotional_development: 9 }
+                };
+                
+                if (ageUrgencyMap[motherData.stage] && ageUrgencyMap[motherData.stage][topic.id]) {
+                    urgencyScore += ageUrgencyMap[motherData.stage][topic.id];
+                }
+                
+                return Math.min(urgencyScore, 10); // Cap at 10
+            },
+
+            calculateEngagement(topic) {
+                const wisdomCount = (topic.familyWisdom || []).length;
+                const activityCount = (topic.activities || []).length;
+                const recentActivity = this.getRecentActivityScore(topic);
+                
+                return Math.min(wisdomCount * 2 + activityCount + recentActivity, 10);
+            },
+
+            getRecentActivityScore(topic) {
+                const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+                
+                let score = 0;
+                (topic.familyWisdom || []).forEach(wisdom => {
+                    const wisdomDate = new Date(wisdom.date);
+                    if (wisdomDate > oneDayAgo) score += 5;
+                    else if (wisdomDate > oneWeekAgo) score += 2;
+                });
+                
+                return score;
+            },
+
+            calculateNeedForInput(topic) {
+                const wisdomCount = (topic.familyWisdom || []).length;
+                if (wisdomCount === 0) return 10; // Desperately needs input
+                if (wisdomCount < 2) return 7;    // Could use more input
+                if (wisdomCount < 4) return 4;    // Has some input
+                return 2; // Well covered
+            },
+
+            prioritizeTopics(topics, motherData, userRole) {
+                return topics.map(topic => {
+                    const urgency = this.calculateUrgency(topic, motherData);
+                    const engagement = this.calculateEngagement(topic);
+                    const needForInput = this.calculateNeedForInput(topic);
+                    
+                    // Different weights for mother vs support members
+                    let priorityScore;
+                    if (userRole === 'mother') {
+                        priorityScore = urgency * 0.5 + engagement * 0.3 + needForInput * 0.2;
+                    } else {
+                        // Support members see topics that need their input more prominently
+                        priorityScore = needForInput * 0.5 + urgency * 0.3 + engagement * 0.2;
+                    }
+                    
+                    return {
+                        ...topic,
+                        urgency,
+                        engagement,
+                        needForInput,
+                        priorityScore,
+                        insights: this.generateInsights(topic, motherData, userRole)
+                    };
+                }).sort((a, b) => b.priorityScore - a.priorityScore);
+            },
+
+            generateInsights(topic, motherData, userRole) {
+                const insights = [];
+                const wisdomCount = (topic.familyWisdom || []).length;
+                const urgency = this.calculateUrgency(topic, motherData);
+                
+                // Timeline-based insights
+                if (motherData.stage === 'prenatal' && motherData.dueDate) {
+                    const dueDate = new Date(motherData.dueDate);
+                    const weeksUntilDue = Math.ceil((dueDate - new Date()) / (7 * 24 * 60 * 60 * 1000));
+                    
+                    if (topic.id === 'labor_prep' && weeksUntilDue < 8) {
+                        insights.push({ type: 'urgent', text: 'Due date approaching - time to prepare!' });
+                    }
+                    if (topic.id === 'nursery_setup' && weeksUntilDue < 12) {
+                        insights.push({ type: 'timely', text: 'Good time to set up the nursery' });
+                    }
+                }
+                
+                // Engagement insights
+                if (wisdomCount === 0) {
+                    if (userRole === 'support') {
+                        insights.push({ type: 'help-needed', text: `${motherData.name} could use family wisdom here` });
+                    } else {
+                        insights.push({ type: 'help-needed', text: 'Ask your family for their experience' });
+                    }
+                } else if (wisdomCount === 1 && userRole === 'support') {
+                    insights.push({ type: 'encourage', text: 'Great start! Add your perspective too' });
+                }
+                
+                // Recent activity insights
+                const recentWisdom = (topic.familyWisdom || []).filter(w => {
+                    const wisdomDate = new Date(w.date);
+                    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+                    return wisdomDate > twoDaysAgo;
+                });
+                
+                if (recentWisdom.length > 0 && userRole === 'mother') {
+                    insights.push({ type: 'active', text: 'Family recently shared wisdom here' });
+                }
+                
+                return insights;
+            },
+
+            generatePrompts(topic, motherData, supportMember) {
+                const prompts = [];
+                const relationship = supportMember?.relationship?.toLowerCase() || '';
+                
+                // Relationship-specific prompts
+                const promptMap = {
+                    'feeding': {
+                        'mother': 'Share how you fed your babies',
+                        'sister': 'What feeding advice worked for you?',
+                        'friend': 'Any feeding tips from your experience?',
+                        'default': 'Share your feeding wisdom'
+                    },
+                    'sleep_newborn': {
+                        'mother': 'What sleep techniques worked for your children?',
+                        'partner': 'How can you help with night routines?',
+                        'default': 'Share your sleep strategies'
+                    },
+                    'potty_training': {
+                        'mother': 'How did you potty train your kids?',
+                        'sister': 'What potty training methods worked?',
+                        'default': 'Share potty training wisdom'
+                    }
+                };
+                
+                const topicPrompts = promptMap[topic.id];
+                if (topicPrompts) {
+                    const specificPrompt = topicPrompts[relationship] || topicPrompts.default;
+                    prompts.push(specificPrompt);
+                }
+                
+                return prompts;
+            }
+        };
+
+        const enhancedCareTopics = {
+            prenatal: [
+                {
+                    id: 'nutrition',
+                    title: 'Nutrition & Supplements',
+                    bestPractice: 'Folic acid (400-800mcg daily), balanced diet with extra protein, avoid alcohol and high-mercury fish. Stay hydrated with 8-10 glasses of water daily.',
+                    familyWisdom: [],
+                    activities: [],
+                    category: 'health',
+                    keyPeriod: 'early-pregnancy'
+                },
+                {
+                    id: 'exercise',
+                    title: 'Safe Exercise During Pregnancy', 
+                    bestPractice: 'Aim for 150 minutes of moderate exercise weekly. Walking, swimming, and prenatal yoga are excellent. Avoid contact sports and lying flat on back after first trimester.',
+                    familyWisdom: [],
+                    activities: [],
+                    category: 'health',
+                    keyPeriod: 'mid-pregnancy'
+                },
+                {
+                    id: 'labor_prep',
+                    title: 'Preparing for Labor & Delivery',
+                    bestPractice: 'Take childbirth classes, create birth plan, pack hospital bag by 36 weeks. Practice breathing techniques and discuss pain management options with provider.',
+                    familyWisdom: [],
+                    activities: [],
+                    category: 'preparation',
+                    keyPeriod: 'late-pregnancy'
+                },
+                {
+                    id: 'nursery_setup',
+                    title: 'Setting Up Nursery & Baby Gear',
+                    bestPractice: 'Essential items: safe crib, car seat, changing station, feeding supplies. Ensure crib meets current safety standards - firm mattress, fitted sheets, no loose bedding.',
+                    familyWisdom: [],
+                    activities: [],
+                    category: 'preparation',
+                    keyPeriod: 'late-pregnancy'
+                }
+            ],
+            newborn: [
+                {
+                    id: 'feeding',
+                    title: 'Newborn Feeding (0-3 months)',
+                    bestPractice: 'Breastfeed 8-12 times per day or formula every 2-3 hours. Watch for hunger cues: rooting, sucking motions, hand-to-mouth movements. Track wet diapers (6+ per day after day 6).',
+                    familyWisdom: [],
+                    activities: [],
+                    category: 'daily-care',
+                    keyPeriod: 'immediate'
+                },
+                {
+                    id: 'sleep_newborn',
+                    title: 'Newborn Sleep Safety',
+                    bestPractice: 'Always place baby on back to sleep. Use firm mattress with fitted sheet only. Room-sharing without bed-sharing for first 6 months reduces SIDS risk by up to 50%.',
+                    familyWisdom: [],
+                    activities: [],
+                    category: 'safety',
+                    keyPeriod: 'immediate'
+                },
+                {
+                    id: 'development_0_3',
+                    title: 'Development (0-3 months)',
+                    bestPractice: 'Tummy time 3-5 times daily when awake. Talk, sing, and make eye contact. Babies should lift head briefly, track objects, and smile socially by 2-3 months.',
+                    familyWisdom: [],
+                    activities: [],
+                    category: 'development',
+                    keyPeriod: 'ongoing'
+                }
+            ],
+            infant: [
+                {
+                    id: 'solid_foods',
+                    title: 'Starting Solid Foods (4-6 months)',
+                    bestPractice: 'Start around 6 months with single-ingredient foods. Introduce one new food every 3-5 days. Begin with iron-rich foods like pureed meats or iron-fortified cereals.',
+                    familyWisdom: [],
+                    activities: [],
+                    category: 'nutrition',
+                    keyPeriod: 'milestone-driven'
+                },
+                {
+                    id: 'sleep_training',
+                    title: 'Sleep Routines (3-12 months)',
+                    bestPractice: 'Establish consistent bedtime routine. Most babies can sleep through night by 6 months. Consider gentle sleep training methods if needed after 4-6 months.',
+                    familyWisdom: [],
+                    activities: [],
+                    category: 'daily-care',
+                    keyPeriod: 'milestone-driven'
+                },
+                {
+                    id: 'milestones_6_12',
+                    title: 'Milestones (6-12 months)',
+                    bestPractice: 'Sitting without support (6-8 months), crawling (7-10 months), pulling to stand (8-12 months), first words (10-14 months). Encourage exploration in safe environment.',
+                    familyWisdom: [],
+                    activities: [],
+                    category: 'development',
+                    keyPeriod: 'ongoing'
+                }
+            ],
+            toddler: [
+                {
+                    id: 'potty_training',
+                    title: 'Potty Training (18 months - 3 years)',
+                    bestPractice: 'Look for readiness signs: staying dry longer, showing interest, communicating bathroom needs. Use positive reinforcement, expect accidents, follow child\'s pace.',
+                    familyWisdom: [],
+                    activities: [],
+                    category: 'milestone',
+                    keyPeriod: 'readiness-driven'
+                },
+                {
+                    id: 'nutrition_toddler',
+                    title: 'Toddler Nutrition (1-3 years)',
+                    bestPractice: 'Serve variety of foods, limit juice to 4-6oz daily, whole milk until age 2. Expect picky eating phases - continue offering variety without forcing.',
+                    familyWisdom: [],
+                    activities: [],
+                    category: 'nutrition',
+                    keyPeriod: 'ongoing'
+                },
+                {
+                    id: 'behavior_guidance',
+                    title: 'Behavior & Discipline (1-3 years)',
+                    bestPractice: 'Set consistent, age-appropriate limits. Use positive reinforcement and redirection. Tantrums are normal - stay calm and provide comfort when needed.',
+                    familyWisdom: [],
+                    activities: [],
+                    category: 'development',
+                    keyPeriod: 'ongoing'
+                }
+            ],
+            preschool: [
+                {
+                    id: 'school_readiness',
+                    title: 'Preschool Readiness (3-5 years)',
+                    bestPractice: 'Focus on social skills, following simple instructions, basic self-care. Read together daily, encourage independence in dressing and eating.',
+                    familyWisdom: [],
+                    activities: [],
+                    category: 'preparation',
+                    keyPeriod: 'age-driven'
+                },
+                {
+                    id: 'emotional_development',
+                    title: 'Emotional Development (3-5 years)',
+                    bestPractice: 'Help identify and name emotions. Teach coping strategies like deep breathing. Model emotional regulation and problem-solving skills.',
+                    familyWisdom: [],
+                    activities: [],
+                    category: 'development',
+                    keyPeriod: 'ongoing'
+                }
+            ]
+        };
+
+        // Use enhanced topics instead of basic template
+        const careTopicsTemplate = enhancedCareTopics;
+            prenatal: [
+                {
+                    id: 'nutrition',
+                    title: 'Nutrition & Supplements',
+                    bestPractice: 'Folic acid (400-800mcg daily), balanced diet with extra protein, avoid alcohol and high-mercury fish. Stay hydrated with 8-10 glasses of water daily.',
+                    familyWisdom: [],
+                    activities: []
+                },
+                {
+                    id: 'exercise',
+                    title: 'Safe Exercise During Pregnancy', 
+                    bestPractice: 'Aim for 150 minutes of moderate exercise weekly. Walking, swimming, and prenatal yoga are excellent. Avoid contact sports and lying flat on back after first trimester.',
+                    familyWisdom: [],
+                    activities: []
+                },
+                {
+                    id: 'labor_prep',
+                    title: 'Preparing for Labor & Delivery',
+                    bestPractice: 'Take childbirth classes, create birth plan, pack hospital bag by 36 weeks. Practice breathing techniques and discuss pain management options with provider.',
+                    familyWisdom: [],
+                    activities: []
+                },
+                {
+                    id: 'nursery_setup',
+                    title: 'Setting Up Nursery & Baby Gear',
+                    bestPractice: 'Essential items: safe crib, car seat, changing station, feeding supplies. Ensure crib meets current safety standards - firm mattress, fitted sheets, no loose bedding.',
+                    familyWisdom: [],
+                    activities: []
+                }
+            ],
+            newborn: [
+                {
+                    id: 'feeding',
+                    title: 'Newborn Feeding (0-3 months)',
+                    bestPractice: 'Breastfeed 8-12 times per day or formula every 2-3 hours. Watch for hunger cues: rooting, sucking motions, hand-to-mouth movements. Track wet diapers (6+ per day after day 6).',
+                    familyWisdom: [],
+                    activities: []
+                },
+                {
+                    id: 'sleep_newborn',
+                    title: 'Newborn Sleep Safety',
+                    bestPractice: 'Always place baby on back to sleep. Use firm mattress with fitted sheet only. Room-sharing without bed-sharing for first 6 months reduces SIDS risk by up to 50%.',
+                    familyWisdom: [],
+                    activities: []
+                },
+                {
+                    id: 'development_0_3',
+                    title: 'Development (0-3 months)',
+                    bestPractice: 'Tummy time 3-5 times daily when awake. Talk, sing, and make eye contact. Babies should lift head briefly, track objects, and smile socially by 2-3 months.',
+                    familyWisdom: [],
+                    activities: []
+                }
+            ],
+            infant: [
+                {
+                    id: 'solid_foods',
+                    title: 'Starting Solid Foods (4-6 months)',
+                    bestPractice: 'Start around 6 months with single-ingredient foods. Introduce one new food every 3-5 days. Begin with iron-rich foods like pureed meats or iron-fortified cereals.',
+                    familyWisdom: [],
+                    activities: []
+                },
+                {
+                    id: 'sleep_training',
+                    title: 'Sleep Routines (3-12 months)',
+                    bestPractice: 'Establish consistent bedtime routine. Most babies can sleep through night by 6 months. Consider gentle sleep training methods if needed after 4-6 months.',
+                    familyWisdom: [],
+                    activities: []
+                },
+                {
+                    id: 'milestones_6_12',
+                    title: 'Milestones (6-12 months)',
+                    bestPractice: 'Sitting without support (6-8 months), crawling (7-10 months), pulling to stand (8-12 months), first words (10-14 months). Encourage exploration in safe environment.',
+                    familyWisdom: [],
+                    activities: []
+                }
+            ],
+            toddler: [
+                {
+                    id: 'potty_training',
+                    title: 'Potty Training (18 months - 3 years)',
+                    bestPractice: 'Look for readiness signs: staying dry longer, showing interest, communicating bathroom needs. Use positive reinforcement, expect accidents, follow child\'s pace.',
+                    familyWisdom: [],
+                    activities: []
+                },
+                {
+                    id: 'nutrition_toddler',
+                    title: 'Toddler Nutrition (1-3 years)',
+                    bestPractice: 'Serve variety of foods, limit juice to 4-6oz daily, whole milk until age 2. Expect picky eating phases - continue offering variety without forcing.',
+                    familyWisdom: [],
+                    activities: []
+                },
+                {
+                    id: 'behavior_guidance',
+                    title: 'Behavior & Discipline (1-3 years)',
+                    bestPractice: 'Set consistent, age-appropriate limits. Use positive reinforcement and redirection. Tantrums are normal - stay calm and provide comfort when needed.',
+                    familyWisdom: [],
+                    activities: []
+                }
+            ],
+            preschool: [
+                {
+                    id: 'school_readiness',
+                    title: 'Preschool Readiness (3-5 years)',
+                    bestPractice: 'Focus on social skills, following simple instructions, basic self-care. Read together daily, encourage independence in dressing and eating.',
+                    familyWisdom: [],
+                    activities: []
+                },
+                {
+                    id: 'emotional_development',
+                    title: 'Emotional Development (3-5 years)',
+                    bestPractice: 'Help identify and name emotions. Teach coping strategies like deep breathing. Model emotional regulation and problem-solving skills.',
+                    familyWisdom: [],
+                    activities: []
+                }
+            ]
+        };
+
+        const activityTemplates = {
+            recipe: [
+                "Cook {item} together this weekend with {member}",
+                "Have {member} teach the family their special {item}",
+                "Plan a cooking video call where {member} shows their {item} technique",
+                "Make {member}'s {item} a new family tradition"
+            ],
+            technique: [
+                "Practice {technique} with {member} this week",
+                "Have {member} demonstrate their {technique} approach",
+                "Create a family guide for {member}'s {technique}",
+                "Compare different {technique} methods with {member}"
+            ],
+            story: [
+                "Ask {member} to share more stories about {topic}",
+                "Record {member} telling their {topic} story for the family",
+                "Create a family memory book including {member}'s {topic} experience",
+                "Have a family discussion about {member}'s {topic} wisdom"
+            ],
+            general: [
+                "Plan a bonding activity with {member} around {topic}",
+                "Schedule time for {member} to share their {topic} experience",
+                "Try {member}'s approach to {topic} this week",
+                "Include {member} in your next {topic} routine"
+            ]
+        };
+
+        // Firebase Helper Functions
+        const FirebaseAPI = {
+            async createFamily(motherData, stage) {
+                if (!db) throw new Error("Firebase not available");
+                
+                const familyRef = db.collection('families').doc();
+                const familyId = familyRef.id;
+                
+                const familyData = {
+                    id: familyId,
+                    mother: motherData,
+                    stage: stage,
+                    members: [],
+                    topics: careTopicsTemplate,
+                    invitations: [],
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                await familyRef.set(familyData);
+                return familyId;
+            },
+
+            async createUser(userData) {
+                if (!db) throw new Error("Firebase not available");
+                
+                const userRef = db.collection('users').doc();
+                const userId = userRef.id;
+                
+                const user = {
+                    ...userData,
+                    id: userId,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                await userRef.set(user);
+                return userId;
+            },
+
+            async getFamily(familyId) {
+                if (!db) throw new Error("Firebase not available");
+                
+                const doc = await db.collection('families').doc(familyId).get();
+                return doc.exists ? doc.data() : null;
+            },
+
+            async updateFamily(familyId, updates) {
+                if (!db) throw new Error("Firebase not available");
+                
+                await db.collection('families').doc(familyId).update({
+                    ...updates,
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            },
+
+            async addFamilyMember(familyId, memberData) {
+                if (!db) throw new Error("Firebase not available");
+                
+                await db.collection('families').doc(familyId).update({
+                    members: firebase.firestore.FieldValue.arrayUnion(memberData),
+                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            },
+
+            async createInvitation(familyId, motherName) {
+                if (!db) throw new Error("Firebase not available");
+                
+                const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+                const invitation = {
+                    code,
+                    familyId,
+                    motherName,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    used: false
+                };
+
+                await db.collection('invitations').doc(code).set(invitation);
+                return code;
+            },
+
+            async getInvitation(code) {
+                if (!db) throw new Error("Firebase not available");
+                
+                const doc = await db.collection('invitations').doc(code).get();
+                return doc.exists ? doc.data() : null;
+            },
+
+            async useInvitation(code) {
+                if (!db) throw new Error("Firebase not available");
+                
+                await db.collection('invitations').doc(code).update({ used: true });
+            },
+
+            async addWisdom(familyId, stage, topicId, wisdom, activity) {
+                if (!db) throw new Error("Firebase not available");
+                
+                const familyRef = db.collection('families').doc(familyId);
+                const family = await familyRef.get();
+                
+                if (family.exists) {
+                    const data = family.data();
+                    const topics = data.topics;
+                    const topicIndex = topics[stage].findIndex(t => t.id === topicId);
+                    
+                    if (topicIndex !== -1) {
+                        topics[stage][topicIndex].familyWisdom.push(wisdom);
+                        if (activity) {
+                            topics[stage][topicIndex].activities.push(activity);
+                        }
+                        
+                        await familyRef.update({
+                            topics: topics,
+                            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    }
+                }
+            },
+
+            // Analytics functions for admin
+            async getAllFamilies() {
+                if (!db) throw new Error("Firebase not available");
+                
+                const snapshot = await db.collection('families').get();
+                return snapshot.docs.map(doc => doc.data());
+            },
+
+            async getUserAnalytics() {
+                if (!db) throw new Error("Firebase not available");
+                
+                const [families, users, invitations] = await Promise.all([
+                    db.collection('families').get(),
+                    db.collection('users').get(),
+                    db.collection('invitations').get()
+                ]);
+
+                return {
+                    totalFamilies: families.size,
+                    totalUsers: users.size,
+                    totalInvitations: invitations.size,
+                    familiesData: families.docs.map(doc => doc.data()),
+                    usersData: users.docs.map(doc => doc.data())
+                };
+            }
+        };
+
+        // Fallback localStorage functions (if Firebase fails)
+        const LocalStorageAPI = {
+            createFamily(motherData, stage) {
+                const familyId = `family_${Date.now()}`;
+                const familyData = {
+                    id: familyId,
+                    mother: motherData,
+                    stage: stage,
+                    members: [],
+                    topics: careTopicsTemplate,
+                    invitations: [],
+                    createdAt: new Date().toISOString()
+                };
+                
+                localStorage.setItem(`family_${familyId}`, JSON.stringify(familyData));
+                return Promise.resolve(familyId);
+            },
+
+            createUser(userData) {
+                const userId = `user_${Date.now()}`;
+                const user = { ...userData, id: userId, createdAt: new Date().toISOString() };
+                localStorage.setItem(`user_${userId}`, JSON.stringify(user));
+                return Promise.resolve(userId);
+            },
+
+            getFamily(familyId) {
+                const data = localStorage.getItem(`family_${familyId}`);
+                return Promise.resolve(data ? JSON.parse(data) : null);
+            },
+
+            updateFamily(familyId, updates) {
+                const existing = JSON.parse(localStorage.getItem(`family_${familyId}`) || '{}');
+                const updated = { ...existing, ...updates };
+                localStorage.setItem(`family_${familyId}`, JSON.stringify(updated));
+                return Promise.resolve();
+            },
+
+            addFamilyMember(familyId, memberData) {
+                const family = JSON.parse(localStorage.getItem(`family_${familyId}`) || '{}');
+                family.members = [...(family.members || []), memberData];
+                localStorage.setItem(`family_${familyId}`, JSON.stringify(family));
+                return Promise.resolve();
+            },
+
+            createInvitation(familyId, motherName) {
+                const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+                const invitation = { code, familyId, motherName, createdAt: new Date().toISOString() };
+                localStorage.setItem(`invite_${code}`, JSON.stringify(invitation));
+                return Promise.resolve(code);
+            },
+
+            getInvitation(code) {
+                const data = localStorage.getItem(`invite_${code}`);
+                return Promise.resolve(data ? JSON.parse(data) : null);
+            },
+
+            useInvitation(code) {
+                return Promise.resolve();
+            },
+
+            addWisdom(familyId, stage, topicId, wisdom, activity) {
+                const family = JSON.parse(localStorage.getItem(`family_${familyId}`) || '{}');
+                const topics = family.topics;
+                const topicIndex = topics[stage].findIndex(t => t.id === topicId);
+                
+                if (topicIndex !== -1) {
+                    topics[stage][topicIndex].familyWisdom.push(wisdom);
+                    if (activity) {
+                        topics[stage][topicIndex].activities.push(activity);
+                    }
+                }
+                
+                family.topics = topics;
+                localStorage.setItem(`family_${familyId}`, JSON.stringify(family));
+                return Promise.resolve();
+            }
+        };
+
+        // Use Firebase if available, fallback to localStorage
+        const API = db ? FirebaseAPI : LocalStorageAPI;
+
+        function CareCircleApp() {
+            const [currentUser, setCurrentUser] = useState(null);
+            const [currentView, setCurrentView] = useState('welcome');
+            const [inviteCode, setInviteCode] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+
+            // Check URL for invite code on load
+            useEffect(() => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const code = urlParams.get('invite');
+                if (code) {
+                    setInviteCode(code);
+                    setCurrentView('support-join');
+                }
+
+                // Check if user is already logged in (localStorage for session)
+                const savedUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+                if (savedUser) {
+                    setCurrentUser(savedUser);
+                    if (savedUser.role === 'mother') {
+                        setCurrentView('dashboard');
+                    } else {
+                        setCurrentView('support-dashboard');
+                    }
+                }
+            }, []);
+
+            const createMotherProfile = async (name, stage, dueDate) => {
+                setLoading(true);
+                setError('');
+                
+                try {
+                    const motherData = { 
+                        name, 
+                        stage, 
+                        dueDate, 
+                        role: 'mother',
+                        createdAt: new Date().toISOString() 
+                    };
+                    
+                    const familyId = await API.createFamily(motherData, stage);
+                    const userId = await API.createUser({ ...motherData, familyId });
+                    
+                    const user = { ...motherData, id: userId, familyId };
+                    setCurrentUser(user);
+                    localStorage.setItem('currentUser', JSON.stringify(user));
+                    setCurrentView('dashboard');
+                } catch (err) {
+                    setError('Failed to create profile: ' + err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const createSupportProfile = async (name, relationship, inviteCode) => {
+                setLoading(true);
+                setError('');
+                
+                try {
+                    const invitation = await API.getInvitation(inviteCode);
+                    if (!invitation) {
+                        throw new Error('Invalid invitation code');
+                    }
+
+                    const userData = {
+                        name,
+                        relationship,
+                        role: 'support',
+                        familyId: invitation.familyId,
+                        motherName: invitation.motherName,
+                        createdAt: new Date().toISOString()
+                    };
+
+                    const userId = await API.createUser(userData);
+                    await API.addFamilyMember(invitation.familyId, { ...userData, id: userId });
+                    await API.useInvitation(inviteCode);
+
+                    const user = { ...userData, id: userId };
+                    setCurrentUser(user);
+                    localStorage.setItem('currentUser', JSON.stringify(user));
+                    setCurrentView('support-dashboard');
+                } catch (err) {
+                    setError('Failed to join family: ' + err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const logout = () => {
+                localStorage.removeItem('currentUser');
+                setCurrentUser(null);
+                setCurrentView('welcome');
+            };
+
+            // Route to appropriate component based on view
+            switch(currentView) {
+                case 'welcome':
+                    return <WelcomeScreen 
+                        onCreateProfile={createMotherProfile} 
+                        onSwitchToSupport={() => setCurrentView('support-join')}
+                        loading={loading}
+                        error={error}
+                    />;
+                case 'support-join':
+                    return <SupportJoinScreen 
+                        inviteCode={inviteCode} 
+                        onCreateProfile={createSupportProfile} 
+                        onBackToWelcome={() => setCurrentView('welcome')}
+                        loading={loading}
+                        error={error}
+                    />;
+                case 'dashboard':
+                    return <MotherDashboard user={currentUser} onLogout={logout} />;
+                case 'support-dashboard':
+                    return <SupportDashboard user={currentUser} onLogout={logout} />;
+                default:
+                    return <WelcomeScreen 
+                        onCreateProfile={createMotherProfile} 
+                        onSwitchToSupport={() => setCurrentView('support-join')}
+                        loading={loading}
+                        error={error}
+                    />;
+            }
+        }
+
+        function WelcomeScreen({ onCreateProfile, onSwitchToSupport, loading, error }) {
+            const [name, setName] = useState('');
+            const [stage, setStage] = useState('prenatal');
+            const [dueDate, setDueDate] = useState('');
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (name.trim()) {
+                    onCreateProfile(name, stage, dueDate);
+                }
+            };
+
+            return (
+                <div className="min-h-screen gradient-bg flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+                        <div className="text-center mb-8">
+                            <h1 className="text-3xl font-bold text-gray-900 mb-2">CareCircle</h1>
+                            <p className="text-gray-600">Family-centered maternal & pediatric care</p>
+                            {!db && (
+                                <p className="text-orange-600 text-xs mt-2">Demo mode - data saved locally</p>
+                            )}
+                        </div>
+
+                        {error && (
+                            <div className="mb-4 p-3 bg-red-50 border border-red-300 rounded-lg">
+                                <p className="text-red-700 text-sm">{error}</p>
+                            </div>
+                        )}
+
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Your Name
+                                </label>
+                                <input
+                                    type="text"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                                    placeholder="Enter your name"
+                                    required
+                                    disabled={loading}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Current Stage
+                                </label>
+                                <select
+                                    value={stage}
+                                    onChange={(e) => setStage(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                                    disabled={loading}
+                                >
+                                    <option value="prenatal">Pregnant</option>
+                                    <option value="newborn">Newborn (0-3 months)</option>
+                                    <option value="infant">Infant (3-12 months)</option>
+                                    <option value="toddler">Toddler (1-3 years)</option>
+                                    <option value="preschool">Preschooler (3-5 years)</option>
+                                </select>
+                            </div>
+
+                            {stage === 'prenatal' && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Due Date (Optional)
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={dueDate}
+                                        onChange={(e) => setDueDate(e.target.value)}
+                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                                        disabled={loading}
+                                    />
+                                </div>
+                            )}
+
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full bg-pink-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-pink-700 transition-colors disabled:bg-gray-400"
+                            >
+                                {loading ? 'Creating...' : 'Create Family Circle'}
+                            </button>
+                        </form>
+
+                        <div className="mt-6 text-center">
+                            <button
+                                onClick={onSwitchToSupport}
+                                className="text-pink-600 hover:text-pink-700 text-sm font-medium"
+                                disabled={loading}
+                            >
+                                Join as Support Member
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function SupportJoinScreen({ inviteCode, onCreateProfile, onBackToWelcome, loading, error }) {
+            const [name, setName] = useState('');
+            const [relationship, setRelationship] = useState('');
+            const [code, setCode] = useState(inviteCode || '');
+            const [invitation, setInvitation] = useState(null);
+            const [checkingInvite, setCheckingInvite] = useState(false);
+
+            // Check if invite code is valid
+            useEffect(() => {
+                if (code && code.length >= 6) {
+                    setCheckingInvite(true);
+                    API.getInvitation(code)
+                        .then(invite => setInvitation(invite))
+                        .catch(() => setInvitation(null))
+                        .finally(() => setCheckingInvite(false));
+                }
+            }, [code]);
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (name.trim() && relationship.trim() && code.trim()) {
+                    onCreateProfile(name, relationship, code);
+                }
+            };
+
+            return (
+                <div className="min-h-screen gradient-bg flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+                        <div className="text-center mb-8">
+                            <h1 className="text-3xl font-bold text-gray-900 mb-2">Join Family Circle</h1>
+                            <p className="text-gray-600">Connect with your family's care journey</p>
+                        </div>
+
+                        {error && (
+                            <div className="mb-4 p-3 bg-red-50 border border-red-300 rounded-lg">
+                                <p className="text-red-700 text-sm">{error}</p>
+                            </div>
+                        )}
+
+                        {invitation && (
+                            <div className="mb-6 p-4 bg-pink-50 rounded-lg">
+                                <p className="text-sm text-gray-700">
+                                    You've been invited to join <span className="font-semibold">{invitation.motherName}</span>'s care circle
+                                </p>
+                            </div>
+                        )}
+
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Invitation Code
+                                </label>
+                                <input
+                                    type="text"
+                                    value={code}
+                                    onChange={(e) => setCode(e.target.value.toUpperCase())}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                                    placeholder="Enter invitation code"
+                                    required
+                                    disabled={loading}
+                                />
+                                {checkingInvite && (
+                                    <p className="text-xs text-gray-500 mt-1">Checking invitation...</p>
+                                )}
+                                {code && !checkingInvite && !invitation && (
+                                    <p className="text-xs text-red-500 mt-1">Invalid invitation code</p>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Your Name
+                                </label>
+                                <input
+                                    type="text"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                                    placeholder="Enter your name"
+                                    required
+                                    disabled={loading}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-
